@@ -42,13 +42,30 @@ def plot(results,filename=None,problem=None,view=None,alpha=1.0):
     ax.set_zlabel('f3')
 
     xl=ax.get_xlim()
-    ax.set_xlim(xl[0],1)
+    #ax.set_xlim(xl[0],1)
+
+    yl=ax.get_zlim()
+    ax.set_ylim(0,yl[1])
 
     zl=ax.get_zlim()
-    ax.set_zlim(0,zl[1])
-    ax.view_init(*view[i])
-    #   fig.show()
-    fig.savefig(name[i]+".png",dpi=800,transparent=True,format="png",bbox_inches="tight")
+    #ax.set_zlim(0,zl[1])
+
+    if problem:
+        po=np.rot90(np.loadtxt("%s.3D.pf"%problem))
+        ax.plot_trisurf(*list(po),alpha = alpha, color = 'grey')
+        #ax.scatter(*list(po), c=c[-1],s=size)
+    ax.set_zlim(zl)
+    ax.set_xlim(xl)
+    ax.set_ylim(yl)
+    
+    if view:
+        ax.view_init(*view)
+
+    if filename:
+        fig.savefig(filename+".png",dpi=800,transparent=True,format="png",bbox_inches="tight")
+    else:
+        fig.show()
+
 if __name__=='__main__':
     if not len(sys.argv) >1:
         print('Using default dmp file')
@@ -61,3 +78,7 @@ if __name__=='__main__':
     asf=results[(3, 'ACH_solution', 'DTLZ2')][3]
     #plot([asf],filename="ASF",view=(-108,-50))
     #plot([rnsga],filename="RNSGAII",view=(-110,-45))
+    
+    plot([rnsga,asf],view=(-110,-45),problem="DTLZ2")
+    raw_input(">")
+    
