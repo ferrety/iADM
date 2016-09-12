@@ -35,11 +35,12 @@ def plot(results,filename=None,problem=None,view=None,alpha=1.0):
 
         ax.plot(p[:,0],p[:,1],p[:,2],c=c[i])
 
+    for set_ticks in [ax.set_xticks,ax.set_yticks,ax.set_zticks]:
+        set_ticks([0.0,0.5,1.0])
 
-
-    ax.set_xlabel('f1')
-    ax.set_ylabel('f2')
-    ax.set_zlabel('f3')
+    ax.set_xlabel('$f_1$')
+    ax.set_ylabel('$f_2$')
+    ax.set_zlabel('$f_3$')
 
     xl=ax.get_xlim()
     #ax.set_xlim(xl[0],1)
@@ -52,7 +53,7 @@ def plot(results,filename=None,problem=None,view=None,alpha=1.0):
 
     if problem:
         po=np.rot90(np.loadtxt("%s.3D.pf"%problem))
-        ax.plot_trisurf(*list(po),alpha = alpha, color = 'grey')
+        ax.plot_trisurf(*list(po),alpha = alpha, color = 'grey',linewidth=0)
         #ax.scatter(*list(po), c=c[-1],s=size)
     ax.set_zlim(zl)
     ax.set_xlim(xl)
@@ -75,11 +76,12 @@ if __name__=='__main__':
         dmpf=sys.argv[1]
         
     results=pickle.load(open(dmpf,"r"))
-    rnsga=results[(3, 'rNSGAII_solution', 'DTLZ2')][0]
-    asf=results[(3, 'ACH_solution', 'DTLZ2')][3]
+    #rnsga=results[(3, 'rNSGAII_solution', 'DTLZ2')][0]
+    #asf=results[(3, 'ACH_solution', 'DTLZ2')][3]
     #plot([asf],filename="ASF",view=(-108,-50))
     #plot([rnsga],filename="RNSGAII",view=(-110,-45))
-    
-    plot([rnsga,asf],view=(-110,-45),problem="DTLZ2")
-    raw_input(">")
+    plot(results[(3, 'ACH_solution', 'DTLZ4')],problem="DTLZ4",alpha=0.5,filename="ASF.png")
+    plot(results[(3, 'rNSGAII_solution', 'DTLZ4')],problem="DTLZ4",alpha=0.5,filename="rNSGA2.png")
+    #plot([rnsga,asf],view=(-110,-45),problem="DTLZ2")
+    #raw_input(">")
     
