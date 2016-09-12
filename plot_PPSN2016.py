@@ -8,10 +8,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import sys
 
-def plot(results,filename=None,problem=None,view=None,alpha=1.0):
+def plot(results,filename=None,problem=None,view=None,alpha=1.0,nzl=None,cmap="gnuplot"):
 
     
-    c=['b','g','r','c','m','y','k']*2
+    c=plt.get_cmap(cmap)(np.linspace(0, 1, len(results)))
     
     size=40
 
