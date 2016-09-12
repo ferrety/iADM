@@ -62,9 +62,10 @@ def plot(results,filename=None,problem=None,view=None,alpha=1.0):
         ax.view_init(*view)
 
     if filename:
-        fig.savefig(filename+".png",dpi=800,transparent=True,format="png",bbox_inches="tight")
+        fig.savefig(filename+".png",dpi=600,transparent=True,format="png",bbox_inches="tight")
     else:
         fig.show()
+    return fig
 
 if __name__=='__main__':
     if not len(sys.argv) >1:
