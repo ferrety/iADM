@@ -8,7 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import sys
 
-def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cmap="gnuplot"):
+def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cmap="gnuplot",legend=False):
 
     
     c=plt.get_cmap(cmap)(np.linspace(0, 1, len(results)))
@@ -24,13 +24,14 @@ def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cm
         obj=np.array(r[2][0])
         
         # Initial aspiration level
-        ax.scatter(*tuple(asp), c=c[i], marker='D',s=size)
+        aspir_mark=ax.scatter(*tuple(asp), c=c[i], marker='D',s=size,label="Aspiration level")
         
-        # Last solution as square box
-        ax.scatter(obj[:,0][-1] ,obj[:,1][-1],obj[:,2][-1], c=c[i], marker='s',s=size)
-
         # Reference points as path and x
-        ax.plot(ref[:,0],ref[:,1],ref[:,2], c=c[i],marker='x')
+        ax.plot(ref[1:,0],ref[1:,1],ref[1:,2], c=c[i])
+        ref_mark=ax.scatter(ref[1:,0],ref[1:,1],ref[1:,2], c=c[i],marker='x',label="Reference point")
+
+        # Last solution as square box
+        solution_mark=ax.scatter(obj[:,0][-1] ,obj[:,1][-1],obj[:,2][-1], c=c[i], marker='s',s=size,label="Final solution")
         
         # Path from last reference points to final solution
         ax.plot(*tuple(np.vstack((ref[-1],obj[-1])).T),c=c[i])
@@ -62,6 +63,15 @@ def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cm
     if view:
         ax.view_init(*view)
 
+    if legend:
+        plt.legend(loc=0, scatterpoints = 1,handles=[aspir_mark,solution_mark,ref_mark],bbox_to_anchor=(.90, .92))
+        leg = ax.get_legend()
+        for h in leg.legendHandles:
+            h.set_color('grey')
+
+        if filename:
+            filename="%s-legend"%filename
+
     if filename:
         fig.savefig(filename+".png",dpi=600,transparent=True,format="png",bbox_inches="tight")
     else:
@@ -80,8 +90,8 @@ if __name__=='__main__':
     #asf=results[(3, 'ACH_solution', 'DTLZ2')][3]
     #plot([asf],filename="ASF",view=(-108,-50))
     #plot([rnsga],filename="RNSGAII",view=(-110,-45))
-    plot(results[(3, 'ACH_solution', 'DTLZ4')],problem="DTLZ4",alpha=0.5,filename="ASF")
-    plot(results[(3, 'rNSGAII_solution', 'DTLZ4')],problem="DTLZ4",alpha=0.5,filename="rNSGA2")
+    plot(results[(3, 'ACH_solution', 'DTLZ4')],problem="DTLZ4",alpha=0.5,filename="ASF",legend=True)
+    plot(results[(3, 'rNSGAII_solution', 'DTLZ4')],problem="DTLZ4",alpha=0.5,filename="rNSGA2",legend=True)
     #plot([rnsga,asf],view=(-110,-45),problem="DTLZ2")
     #raw_input(">")
     
