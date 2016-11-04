@@ -22,7 +22,7 @@ def plot_res(res):
     #ax2.scatter(*np.rot90(res[3][0]),marker="x")
     
     problem="DTLZ2"
-    po=np.rot90(np.loadtxt("%s.2D.pf"%problem))
+    po=np.rot90(np.loadtxt("data/%s.2D.pf"%problem))
     #ax2.plot(*list(po),alpha = 1, color = 'grey',linewidth=0)
     #ax2.scatter(*list(po),alpha = 1, color = 'grey',linewidth=0,zorder=-1)
     
