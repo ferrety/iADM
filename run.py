@@ -48,7 +48,7 @@ def ADM2_run(nf=3,jobs=8,evals=20000,runs=4,single_pref=True,
     nadir=[1.0]*nf
     bounds=(ideal,nadir)
 
-    init_pref=[Rectangle(ideal,nadir)]
+    init_pref=[[Rectangle(ideal,nadir)]]
     results=defaultdict(list)
     for r in range(runs):
         res=Parallel(n_jobs=jobs)(
@@ -123,8 +123,8 @@ if __name__=='__main__':
     res=ADM2_run(nf=nf,runs=1,jobs=1,single_pref=True, methods=[pyMOEA.ACH_solution],
               problems=['DTLZ2','DTLZ1'])
     
-    import test_rec
-    test_rec.plot_res(res[0])
+    import adm2_run
+    adm2_run.plot_res(res[0])
     
     #res_all=agent_run(nf=nf,runs=4,single_pref=True)
     #pickle.dump(results,open("results-nf%i-%s.dmp"%(nf,datetime.datetime.now().date().isoformat()),"w"))
