@@ -1,8 +1,12 @@
 import os
 import sys
 import itertools
+import logging
+#logging.getLogger('pyMOEA').addHandler(logging.NullHandler())
+
 import tempfile
 import shutil
+
 from sklearn import tree
 from scipy.spatial import Rectangle
 import copy
@@ -21,7 +25,6 @@ from random import random
 
 from scipy import spatial
 from scipy.optimize import differential_evolution
-import numpy as np
 
 try:
     import jnius_config
@@ -50,61 +53,147 @@ except ValueError,e:
 
 from jnius import autoclass,cast, JavaException
 
+    
+def utility_function(uf_n,k_obj):
+    """  Return utility function uf_n for k_obj objectives
 
-def ADM2_reference(rectangles):
-    """ Generate new reference point for ADM"
+    :param int uf_n: Utility function to be created
+    :param int k_obj: Number of objectives
+    :rtype np.vectorize: Utility function
+    """
+    ########################################################
+    # DP
+    ########################################################
+    
+    ### two types of weighting: equal weights and ROC weighting scheme
+    w_for_uf=(
+        # equal weights       
+        [1. for i in range(k_obj)],
+        # ROC weights
+        [sum(1/(j+1) for j in range(i,k_obj)) for i in range(k_obj)]
+        )
+    
+    # utility function classes - parametric, for defining 
+    # different function instances with different parameters
+    # in the case of maximization; nadir=0, ideal=1; x = objective vector
+    r=0.5 # constant parameter
+    
+    uf_param=(
+    ### CES utility function
+    lambda w:(
+        lambda x:
+        np.sum(np.multiply(np.power(x,r),w))
+        ),
+    
+    ### Cobb-Douglas utility function    
+    lambda w:(
+        lambda x:
+        np.prod(np.power(x,w))
+        ),
+    
+    ### TOPSIS utility function
+    lambda w:(
+        lambda x:
+            np.sqrt(np.sum(np.multiply(np.power(x,2),w)))/
+            (np.sqrt(np.sum(np.multiply(np.power(x,2),w))) +
+             np.sqrt(np.sum(np.multiply(np.power(
+                      np.add(1,np.negative(x))                                 
+                                              ,2),w))))
+    
+        )
+            )
+        
+    ####################################################
+    # dummy nadir and ideal representing not local, but global ones,
+    # related to the whole problem - redefine to actual nadir and ideal
+    ####################################################
+    
+    ## the list of all used utilities appropriate to the problem setting 
+    
+    uf_list=[
+             uf(w)
+                 for uf in uf_param
+                     for w in w_for_uf
+             ]
+
+    # TODO get the actual ideal and nadir values
+    nadir_global=[1.]*k_obj
+    ideal_global=[0.]*k_obj
+    return np.vectorize(lambda x:uf_list[uf_n]( # transforming the objective vector
+        np.add(nadir_global,np.negative(x.mins))/
+    np.add(nadir_global,np.negative(ideal_global))
+                                 )
+                         )
+    
+def ADM2_reference(rectangles,uf_n=0):
+    """ Generate new reference point for ADM
+
+    :param list[Rectangles] rectangles: List of existing rectangels
+    :param int uf_n: Utility function to be used, see ``uf_n`` in  :func:`utility_function`
 
     Selects the point with the maximum value of the utility function as the reference point
-
+    uf_n = index of the uility function selected from uf_list 
     """
-    r=1
-    a=.5
-    cec_utility=np.vectorize(lambda x:np.power(np.sum(np.power(x.mins,r)),1./r))
-    return rectangles[np.argmax(cec_utility(rectangles))].mins
+    k_obj=len(rectangles[0].mins)
+    utility=utility_function(uf_n,k_obj)
 
+    return rectangles[np.argmax(utility(rectangles))].mins
 
-def ADM2_solve(method,problem, rectangles,evals=2000):
-    print "AMD2 Solving: %s:%s"%(str((method.__name__,problem)),str(len(rectangles)))
-    max_iter=0
+def ADM2_solve(method,problem, rectangles,evals=2000,verbose=1,max_iter=10,**kwargs):
+    
+    logging.info("AMD2 Solving: %s:%s"%(str((method.__name__,problem)),str(len(rectangles))))
+    iter=0
     objs=[]
-    refs=[ADM2_reference(rectangles[-1])]
+    refs=[ADM2_reference(rectangles[-1],**kwargs)]
     nf = len(rectangles[-1][-1].mins)
-    while max_iter<10:
+    while iter<max_iter:
         new_rectangles=copy.deepcopy(rectangles[-1])
-        objs.append(method(problem,refs[-1],evals=evals))
         
-        #print "ref point {} -> {}".format(refs[-1],objs[-1])
+        logging.debug("Running method %s"%method.__name__)     
+        objs.append(method(problem,refs[-1],evals=evals))
+        try:
+            if np.linalg.norm(refs[-1]-refs[-2]) < 0.000001:
+                break
+        except IndexError:
+            pass
+        
         srnd=lambda v: list(map(lambda x:round(x,6),v))
         ref_str="%s"%srnd(refs[-1])
-        print format("ref point %s -> %s"%(ref_str.ljust(10*nf),srnd(objs[-1])))
-        #print format("ref point %20s -> %10s"%tuple(map(srnd,[refs[-1],list(objs[-1])])))
+        
+        logging.debug(format("ref point %s -> %s"%(ref_str.ljust(10*nf),srnd(objs[-1]))))
         replace_rec=None
+        distances=[]
+        outside=True
         for rec in new_rectangles:
-            if rec.min_distance_point(objs[-1])==0.0:
+            distances.append(rec.min_distance_point(objs[-1]))
+            if distances[-1]<=0.0001:
                 replace_rec=rec
-                break
-
-        if replace_rec is None:
-            print("New PO point %s out of bounds\n     For ref %s"%(objs[-1],refs[-1]))
-            break
+                outside=False
+        
+        if outside:
+            replace_rec=new_rectangles[np.argmin(distances)]
+            
         new_rectangles.remove(replace_rec)
         rectangles.append(new_rectangles)
-        
+            
         for i,obj in enumerate(objs[-1][:]):
             low=list(replace_rec.mins)
-            low[i]=obj
+            if outside:
+                if obj>replace_rec.mins[i]:
+                    low[i]=replace_rec.mins[i]    
+            else:
+                low[i]=obj
             up=objs[-1][:]
             up[i]=list(replace_rec.maxes)[i]
-            rectangles[-1].append(Rectangle(low,up))
-            #rectangles[-1].append(Rectangle((replace_rec.maxes[0],replace_rec.mins[1]),objs[-1]))
-
-            
+            rectangles[-1].append(Rectangle(low,up))      
+      
         ref=ADM2_reference(rectangles[-1])
         if np.array_equal(ref,refs[-1]):
-            print "Could not generate new refpoint %s"%objs[-1]
+            logging.warning("Could not generate new refpoint from PO point %s"%objs[-1])
             break
         refs.append(ref)
-        max_iter +=1
+        iter +=1
+    logging.info("AMD2  %s:%s Done"%(str((method.__name__,problem)),str(len(rectangles))))
     return objs[-1],rectangles,(method.__name__,problem),(objs,refs)
 
 
