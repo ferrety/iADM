@@ -1,3 +1,11 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright (c) 2016  Vesa Ojalehto <vesa.ojalehto@gmail.com>
+#
+# This work was supported by the Academy of Finland (grant number 287496)
+
 import os
 import sys
 import itertools
@@ -6,6 +14,8 @@ import logging
 
 import tempfile
 import shutil
+
+import pyProblem
 
 from sklearn import tree
 from scipy.spatial import Rectangle
@@ -223,7 +233,10 @@ def solve(problem_def,method="RNSGAII",refpoint=None,epsilon=0.00001,evals=10000
 def evaluate(problem,point):
     sol=problem.newSolution()
     for i,val in enumerate(point):
-        cast('org.moeaframework.core.variable.RealVariable',sol.getVariable(i)).setValue(val)
+        try:
+            cast('org.moeaframework.core.variable.RealVariable',sol.getVariable(i)).setValue(val)
+        except TypeError:
+            sol.getVariable(i).setValue(val)
     problem.evaluate(sol)
     return sol.getObjectives()
 
@@ -236,6 +249,9 @@ def plot(points):
 
 
 def problem(problem_name,nf,nx=None):
+    if "External" in problem_name:
+        return pyProblem.Problem()
+    
     try:
         prob_def=problem_def(problem_name,nf,nx=nx)
     except:
@@ -275,7 +291,11 @@ def bounds(problem):
     bounds=[]
     sol=problem.newSolution()
     for i in range(problem.getNumberOfVariables()):
-        var = cast('org.moeaframework.core.variable.RealVariable', sol.getVariable(i))
+#p2.__class__ == pyProblem.Problem
+        try:
+            var = cast('org.moeaframework.core.variable.RealVariable', sol.getVariable(i))
+        except TypeError:
+            var = sol.getVariable(i)
         bounds.append((var.getLowerBound()+EPS,var.getUpperBound()-EPS))
     return bounds
 

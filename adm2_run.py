@@ -106,8 +106,14 @@ def plot_contour(k,c,r):
     
 
 def get_res(nf=2,c=None,r=.5,problem='DTLZ2',uf_n=None,**kwargs):
-    ideal=[0.0]*nf
-    nadir=[1.0]*nf
+    problem_type=pyMOEA.problem(problem, nf)
+    try:
+        ideal=problem_type.ideal
+        nadir=problem_type.nadir
+    except AttributeError:
+        ideal=[0.0]*nf
+        nadir=[1.0]*nf
+
     init_pref=[[Rectangle(ideal,nadir)]]
     
     return pyMOEA.ADM2_solve(pyMOEA.ACH_solution,problem,init_pref,**kwargs)#,c=-np.inf)
@@ -127,7 +133,6 @@ if __name__=='__main__':
     parser.add_argument('-v', '--verbose', type=int,
                         help='Logging level',default=logging.INFO)
 
-    
     args=parser.parse_args()    
     verbose= args.verbose
     
