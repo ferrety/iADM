@@ -122,10 +122,10 @@ if __name__=='__main__':
     import argparse
     parser= argparse.ArgumentParser(description="Test ADM2 Agent")
     parser.add_argument('-p','--problem', type=str,
-                    help='Problem to be solved',default='DTLZ2')
+                    help='Problem to be solved',default='External')
 
     parser.add_argument('-k', '--objectives', type=int,
-                        help='Number of objectives',default=2)
+                        help='Number of objectives',default=3)
 
     parser.add_argument('-n', '--runs', type=int,
                         help='Number of runs',default=1)
