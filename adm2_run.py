@@ -7,6 +7,11 @@ import numpy as np
 from scipy.spatial import Rectangle
 from sklearn.manifold import MDS
 
+import sys,argparse
+
+MOEA_PROBLEMS=["Belegundu","Binh","Binh2","Binh3","Binh4","CF1","CF10","CF2","CF3","CF4","CF5","CF6","CF7","CF8","CF9","DTLZ1","DTLZ2","DTLZ3","DTLZ4","DTLZ7","Fonseca","Fonseca2","Jimenez","Kita","Kursawe","LZ09_F1","LZ09_F2","LZ09_F3","LZ09_F4","LZ09_F5","LZ09_F6","LZ09_F7","LZ09_F8","LZ09_F9","Laumanns","Lis","Murata","OKA1","OKA2","Obayashi","Osyczka","Osyczka2","Poloni","Quagliarella","R2_DTLZ2_M5","R3_DTLZ3_M5","Rendon","Rendon2","Schaffer","Schaffer2","Srinivas","Tamaki","Tanaka","UF1","UF10","UF2","UF3","UF4","UF5","UF6","UF7","UF8","UF9","Viennet","Viennet2","Viennet3","Viennet4","WFG1","WFG1_M5","WFG2","WFG3","WFG4","WFG5","WFG6","WFG7","WFG8","WFG9","ZDT1","ZDT2","ZDT3","ZDT4","ZDT6",]
+
+
 import pyMOEA
 def rec_dim(r):
     xy=r.mins
@@ -119,8 +124,7 @@ def get_res(nf=2,c=None,r=.5,problem='DTLZ2',uf_n=None,**kwargs):
     return pyMOEA.ADM2_solve(pyMOEA.ACH_solution,problem,init_pref,**kwargs)#,c=-np.inf)
 
 if __name__=='__main__':
-    import argparse
-    parser= argparse.ArgumentParser(description="Test ADM2 Agent")
+    parser= argparse.ArgumentParser(description="Test ADM2 Agent",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p','--problem', type=str,
                     help='Problem to be solved',default='External')
 
@@ -130,14 +134,21 @@ if __name__=='__main__':
     parser.add_argument('-n', '--runs', type=int,
                         help='Number of runs',default=1)
 
+    parser.add_argument('-l','--list-problems',action='store_true',
+                        help="List available problems")
+    
     parser.add_argument('-v', '--verbose', type=int,
                         help='Logging level',default=logging.INFO)
 
     args=parser.parse_args()    
     verbose= args.verbose
     
-    
-    
+    if args.list_problems:
+        print "Available problems"
+        print "External"
+        for p in MOEA_PROBLEMS:
+            print p
+        sys.exit(0)
     logging.basicConfig(level=verbose)
 
     res=[]
