@@ -140,6 +140,9 @@ if __name__=='__main__':
     parser.add_argument('-v', '--verbose', type=int,
                         help='Logging level',default=logging.INFO)
 
+    parser.add_argument('-i', '--maxiter', type=int,
+                        help='Maximum ADM iterations',default=10)
+
     args=parser.parse_args()    
     verbose= args.verbose
     
@@ -153,7 +156,7 @@ if __name__=='__main__':
 
     res=[]
     for i in range(args.runs):
-        res.append(get_res(nf=args.objectives,problem=args.problem))
+        res.append(get_res(nf=args.objectives,problem=args.problem,max_iter=args.maxiter))
     if args.objectives==2:
         # Show only last run here
         plot_res(res[-1])
