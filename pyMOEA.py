@@ -16,6 +16,7 @@ import tempfile
 import shutil
 
 import pyProblem
+import SimpLinSolve
 
 from sklearn import tree
 from scipy.spatial import Rectangle
@@ -251,6 +252,8 @@ def plot(points):
 def problem(problem_name,nf,nx=None):
     if "External" in problem_name:
         return pyProblem.Problem()
+    elif "SimpLinSolve" in problem_name:
+        return SimpLinSolve.Problem()
     
     try:
         prob_def=problem_def(problem_name,nf,nx=nx)

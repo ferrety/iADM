@@ -126,7 +126,7 @@ def get_res(nf=2,c=None,r=.5,problem='DTLZ2',uf_n=None,**kwargs):
 if __name__=='__main__':
     parser= argparse.ArgumentParser(description="Test ADM2 Agent",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p','--problem', type=str,
-                    help='Problem to be solved',default='External')
+                    help='Problem to be solved',default='SimpLinSolve')
 
     parser.add_argument('-k', '--objectives', type=int,
                         help='Number of objectives',default=3)
@@ -149,6 +149,7 @@ if __name__=='__main__':
     if args.list_problems:
         print "Available problems"
         print "External"
+        print "SimpLinSolve"
         for p in MOEA_PROBLEMS:
             print p
         sys.exit(0)
