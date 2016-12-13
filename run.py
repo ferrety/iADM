@@ -1,3 +1,12 @@
+# coding: utf-8
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Copyright (c) 2016  Vesa Ojalehto
+#
+# This work was supported by the Academy of Finland (grant number 287496)
+
 import pyMOEA
 from random import random
 from joblib import Parallel, delayed
