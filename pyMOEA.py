@@ -21,6 +21,7 @@ import SimpLinSolve
 from sklearn import tree
 from scipy.spatial import Rectangle
 import copy
+import math
 try:
     JAVA_HOME=os.environ['JAVA_HOME']
 except KeyError:
@@ -251,9 +252,9 @@ def plot(points):
 
 def problem(problem_name,nf,nx=None):
     if "External" in problem_name:
-        return pyProblem.Problem()
+        return pyProblem.Problem(nf,nx=nx)
     elif "SimpLinSolve" in problem_name:
-        return SimpLinSolve.Problem()
+        return SimpLinSolve.SimpLinSolve(nf)
     
     try:
         prob_def=problem_def(problem_name,nf,nx=nx)
@@ -367,6 +368,13 @@ def rNSGAII_solution(problem,refpoint,evals=10000):
     points=solve(problem_def(problem,nf),refpoint=refpoint,evals=evals)
     A=np.array(points)
     return list(A[spatial.KDTree(A).query(refpoint)[1]])
+
+def Simple_solution(problem_name,refpoint,evals=None):
+    """ Solve problem without using optimization method.
+    """
+    nf=len(refpoint)
+    prob=problem(problem_name,nf,nx=nf)
+    return prob.evaluate(None,refpoint)
 
 def proj_ref(nf,problem,ref,evals=20000,nx=None):
     print "Projecting %s_%i for %s"%(problem,nf,str(ref))
