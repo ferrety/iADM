@@ -39,10 +39,12 @@ def print_results(results,POs=None,evals=20000):
         POs={}
     full_dist=[]
     pp=defaultdict(list)
+    dfs=[]
     for nf,method,problem in sorted(results.keys(),key=operator.itemgetter(1,0,2)):
         pp[method].append([nf,problem])
         nf = int(nf)
         dist=[]
+        iters = []
         for res in results[(nf,method,problem)]:
             obj=res[0]
             ref=tuple(res[1][0])
@@ -50,29 +52,32 @@ def print_results(results,POs=None,evals=20000):
                 PO=POs[nf,problem,ref]
             else:
                 missing.append((nf,method,problem,ref))
-                #print "Projection not available"
-                PO = pyMOEA.ACH_solution(problem,ref,evals=evals)
-                POs[nf,problem,ref]=PO
+                raise "Projection not available"
+                #PO = pyMOEA.ACH_solution(problem,ref,evals=evals)
+                #POs[nf,problem,ref]=PO
                 continue
             dist.append(spatial.distance.euclidean(obj,PO))
-        mean, sigma = np.mean(dist), np.std(dist)
+            iters.append(len(res[2][1]))
+        mean, sigma = np.median(dist), np.std(dist)
         try:
-            pp[method][-1].extend([np.mean(dist),np.std(dist),np.min(dist),stats.norm.interval(0.95, loc=mean, scale=sigma / np.sqrt(len(dist)))])
+            pp[method][-1].extend([np.median(dist), np.std(dist), np.min(dist), stats.norm.interval(0.95, loc = mean, scale = sigma / np.sqrt(len(dist)))])
             pp[method][-1].append(len(dist))
+            pp[method][-1].extend([int(np.median(iters)), np.max(iters)])
         except ValueError:
             error.append((nf,method,problem))
         
     for method in pp.keys():
-        print method
+
         out=[]
         for values in pp[method]:
             try: 
                 values[4]
             except IndexError:
                 continue
-            out.append([values[1],values[0],values[2],values[3],values[4],values[6],np.abs((values[5][1]-values[5][0])/2)])
+            out.append([values[1], values[0], values[2], values[3], values[4], values[6], np.abs((values[5][1] - values[5][0]) / 2), values[7], values[8]])
         try:
-            print pandas.DataFrame(out,columns=["problem","k","mean","deviation","min","n","2-sigma"]).to_latex(float_format=lambda x:"%11.4f"%x)
+
+            dfs.append((method, pandas.DataFrame(out, columns = ["problem", "k", "median", "deviation", "min", "n", "2-sigma", "median i", "max i"])))
         except Exception,e:
             print e
             print out
@@ -80,7 +85,8 @@ def print_results(results,POs=None,evals=20000):
     print "Projections not available: %i"%len(missing)
     print "Misconfigured values: %i"%len(error)
        
-    return missing,error
+    return dfs, missing, error
+
 
 def print_ADM2(results):
     """

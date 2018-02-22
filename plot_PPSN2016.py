@@ -3,38 +3,43 @@
 """
 
 import pickle
+import os
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import sys
 
-def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cmap="gnuplot",legend=False):
 
+def plot(results, filename = None, problem = None, view = (30, -110), alpha = 1.0, nzl = None, cmap = "gnuplot", legend = False, figsize = None):
     
     c=plt.get_cmap(cmap)(np.linspace(0, 1, len(results)))
     
     size=40
-
-    fig = plt.figure()
+    if figsize:
+        fig = plt.figure(figsize = figsize)
+    else:
+        fig = plt.figure()
     ax = fig.gca(projection='3d')
 
     for i,r in enumerate(results):
         asp=r[1][0]
+        sol = r[1][1]
         ref=np.array(r[2][1])
         obj=np.array(r[2][0])
         
         # Initial aspiration level
         aspir_mark=ax.scatter(*tuple(asp), c=c[i], marker='D',s=size,label="Aspiration level")
-        
+        solution_mark = ax.scatter(*tuple(sol), c = "r", marker = 's', s = size, label = "Desired solution")
+
         # Reference points as path and x
         ax.plot(ref[1:,0],ref[1:,1],ref[1:,2], c=c[i])
         ref_mark=ax.scatter(ref[1:,0],ref[1:,1],ref[1:,2], c=c[i],marker='x',label="Reference point")
 
         # Last solution as square box
-        solution_mark=ax.scatter(obj[:,0][-1] ,obj[:,1][-1],obj[:,2][-1], c=c[i], marker='s',s=size,label="Final solution")
+        # solution_mark=ax.scatter(obj[:,0][-1] ,obj[:,1][-1],obj[:,2][-1], "r", marker='s',s=size,label="Desired solution")
         
         # Path from last reference points to final solution
-        ax.plot(*tuple(np.vstack((ref[-1],obj[-1])).T),c=c[i])
+        # ax.plot(*tuple(np.vstack((ref[-1],obj[-1])).T),c=c[i])
 
     for set_ticks in [ax.set_xticks,ax.set_yticks,ax.set_zticks]:
         set_ticks([0.0,0.5,1.0])
@@ -53,7 +58,7 @@ def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cm
     #ax.set_zlim(0,zl[1])
 
     if problem:
-        po=np.rot90(np.loadtxt("%s.3D.pf"%problem))
+        po = np.rot90(np.loadtxt(os.path.join("data", "%s.3D.pf" % problem)))
         ax.plot_trisurf(*list(po),alpha = alpha, color = 'grey',linewidth=0)
         #ax.scatter(*list(po), c=c[-1],s=size)
     ax.set_zlim(zl)
@@ -75,8 +80,83 @@ def plot(results,filename=None,problem=None,view=(30,-110),alpha=1.0,nzl=None,cm
     if filename:
         fig.savefig(filename+".png",dpi=600,transparent=True,format="png",bbox_inches="tight")
     else:
-        fig.show()
+        pass
+        # fig.show()
     return fig
+
+
+def plot_dec(results, filename = None, problem = None, view = (30, -110), alpha = 1.0, nzl = None, cmap = "gnuplot", legend = False, figsize = None):
+
+    c = plt.get_cmap(cmap)(np.linspace(0, 1, len(results)))
+
+    size = 40
+    if figsize:
+        fig = plt.figure(figsize = figsize)
+    else:
+        fig = plt.figure()
+    ax = fig.gca(projection = '3d')
+
+    for i, r in enumerate(results):
+        asp = r[1][1]
+        ref = np.array(r[2][1])
+        obj = np.array(r[2][0])
+
+        # Initial aspiration level
+        aspir_mark = ax.scatter(*tuple(asp), c = "r", marker = 'D', s = size, label = "Desired solution")
+
+        # Reference points as path and x
+        ax.plot(obj[1:, 0], obj[1:, 1], obj[1:, 2], c = c[i])
+        ref_mark = ax.scatter(obj[1:, 0], obj[1:, 1], obj[1:, 2], c = c[i], marker = 'x', label = "Selected solutions")
+
+        # Last solution as square box
+        solution_mark = ax.scatter(obj[:, 0][-1] , obj[:, 1][-1], obj[:, 2][-1], c = c[i], marker = 's', s = size, label = "Final solution")
+
+        # Path from last reference points to final solution
+        # ax.plot(*tuple(np.vstack((ref[-1], obj[-1])).T), c = c[i])
+
+    for set_ticks in [ax.set_xticks, ax.set_yticks, ax.set_zticks]:
+        set_ticks([0.0, 0.5, 1.0])
+
+    ax.set_xlabel('$f_1$')
+    ax.set_ylabel('$f_2$')
+    ax.set_zlabel('$f_3$')
+
+    xl = ax.get_xlim()
+    # ax.set_xlim(xl[0],1)
+
+    yl = ax.get_zlim()
+    ax.set_ylim(0, yl[1])
+
+    zl = ax.get_zlim()
+    # ax.set_zlim(0,zl[1])
+
+    if problem:
+        po = np.rot90(np.loadtxt(os.path.join("data", "%s.3D.pf" % problem)))
+        ax.plot_trisurf(*list(po), alpha = alpha, color = 'grey', linewidth = 0)
+        # ax.scatter(*list(po), c=c[-1],s=size)
+    ax.set_zlim(zl)
+    ax.set_xlim(xl)
+    ax.set_ylim(yl)
+
+    if view:
+        ax.view_init(*view)
+
+    if legend:
+        plt.legend(loc = 0, scatterpoints = 1, handles = [aspir_mark, solution_mark, ref_mark], bbox_to_anchor = (.90, .92))
+        leg = ax.get_legend()
+        for h in leg.legendHandles:
+            h.set_color('grey')
+
+        if filename:
+            filename = "%s-legend" % filename
+
+    if filename:
+        fig.savefig(filename + ".png", dpi = 600, transparent = True, format = "png", bbox_inches = "tight")
+    else:
+        pass
+        # fig.show()
+    return fig
+
 
 if __name__=='__main__':
     if not len(sys.argv) >1:

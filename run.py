@@ -35,14 +35,15 @@ def make_run(problem,ref,nf=3,runs=10,evals=10000):
             best[1]+=1
     return (best,ach,nsgaii,dist)
 
+
 def random_pref(nf=3):
-    aspir=[0.0]*nf
-    w=[None]*nf
+    aspir = [0.0] * nf
+    w = [None] * nf
     for k in range(nf):
-        w[k]=random()
-        if random()<.5:
-            aspir[k]=random()
-    return aspir,w
+        w[k] = random()
+        if random() < .5:
+            aspir[k] = random()e
+    return aspir, w
 
 def ADM2_run(nf=3,jobs=8,evals=20000,runs=4,single_pref=True,
               methods=[pyMOEA.ACH_solution,pyMOEA.rNSGAII_solution],
@@ -92,7 +93,7 @@ def agent_run(nf=3,jobs=8,evals=20000,runs=10,single_pref=True,
     results=defaultdict(list)
     for r in range(runs):
         res=Parallel(n_jobs=jobs)(
-           delayed(pyMOEA.agent_paraller)(target,pref_list[r],evals=evals)
+           delayed(pyMOEA.agent_paraller_orig)(target, pref_list[r], evals = evals)
                 for target in itertools.product(methods,problems)
         )
         for r in res:
@@ -120,20 +121,16 @@ if __name__=='__main__':
 
     args=parser.parse_args()
     results=defaultdict(list)
-#     for i in range(1):
-#         for nf in [3]:
-#             res=agent_run(nf=nf,runs=1,single_pref=True,problems=["DTLZ2"])
-#             for k in res.keys():
-#                 results[(nf,k[0].__name__,k[1])].extend(res[k])
-#             print "======================================================================="
-#             print nf
-    import datetime,pickle
-    nf=2
-    res=ADM2_run(nf=nf,runs=1,jobs=1,single_pref=True, methods=[pyMOEA.ACH_solution],
-              problems=['DTLZ2','DTLZ1'])
+
+    # import datetime,pickle
+    # nf=2
+    # res=ADM2_run(nf=nf,runs=1,jobs=1,single_pref=True, methods=[pyMOEA.ACH_solution],
+    #          problems=['DTLZ2','DTLZ1'])
     
-    import adm2_run
-    adm2_run.plot_res(res[0])
+    # ADM2
+    # import adm2_run
+    # adm2_run.plot_res(res[0])
     
-    #res_all=agent_run(nf=nf,runs=4,single_pref=True)
-    #pickle.dump(results,open("results-nf%i-%s.dmp"%(nf,datetime.datetime.now().date().isoformat()),"w"))
+    # hADM
+    res_all = agent_run(nf = 2, runs = 1, single_pref = True, problems = ['DTLZ1'])
+    # pickle.dump(results, open("results-nf%i-%s.dmp" % (nf, datetime.datetime.now().date().isoformat()), "w"))

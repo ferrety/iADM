@@ -159,11 +159,11 @@ if __name__=='__main__':
     verbose= args.verbose
     
     if args.list_problems:
-        print "Available problems"
-        print "External"
-        print "SimpLinSolve"
+        print("Available problems")
+        print("External")
+        print("SimpLinSolve")
         for p in MOEA_PROBLEMS:
-            print p
+            print(p)
         sys.exit(0)
     logging.basicConfig(level=verbose)
 

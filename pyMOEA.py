@@ -10,7 +10,6 @@ import os
 import sys
 import itertools
 import logging
-#logging.getLogger('pyMOEA').addHandler(logging.NullHandler())
 
 import tempfile
 import shutil
@@ -22,48 +21,57 @@ from sklearn import tree
 from scipy.spatial import Rectangle
 import copy
 import math
-try:
-    JAVA_HOME=os.environ['JAVA_HOME']
-except KeyError:
-    JAVA_HOME=r'C:\Program Files\Java\jdk1.8.0_31'
-    os.environ['JAVA_HOME']=JAVA_HOME
-
-os.environ['PATH']+=r';%s\bin;%s\jre\bin\server'%tuple([JAVA_HOME]*2)
-
+import multiprocessing, operator
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from random import random
-
+from joblib import Parallel, delayed
 from scipy import spatial
 from scipy.optimize import differential_evolution
 
+logger = logging.getLogger('pyMOEA')
+logger.addHandler(logging.NullHandler())
+
+try:
+    JAVA_HOME = os.environ['JAVA_HOME']
+except KeyError:
+
+    JAVA_HOME = r'C:\Program Files (x86)\Java\jre6' # r'C:\Program Files\Java\jdk1.8.0_31'
+    os.environ['JAVA_HOME'] = JAVA_HOME
+os.environ['PATH'] += r';%s\bin;%s\jre\bin\server' % tuple([JAVA_HOME] * 2)
+
 try:
     import jnius_config
-    moea_path=r"C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3"
+except ValueError as e:
+    logging.error("Failed to import jinus (Has it been previously initialized?)")
+    logging.debug(jnius_config.get_classpath())
 
-    for d in ['bin',r'lib\*',r'build\MOEAFramework-2.3\lib']:
-        jnius_config.add_classpath(os.path.join(moea_path,d))
+# Classpath must be configured
+moea_path = r'D:\JYU\MOEAFramework-2.12'
 
-    moea_clspath=[
-                 r"C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\bin;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\commons-cli-1.2.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\commons-codec-1.8.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\commons-lang3-3.1.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\commons-math3-3.1.1.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\jcommon-1.0.20.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\jfreechart-1.0.15.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\JMetal-4.3.jar;",
-                  "C:\MyTemp\nimbus\hnsga2-moea\MOEAFramework-2.3\lib\rsyntaxtextarea.jar"]
-    jnius_config.add_classpath(*moea_clspath)
+moea_clspath = os.listdir(os.path.join(moea_path, 'lib'))
+#  moea_clspath = [
+#               'bin',
+#               'lib',
+#               'build\MOEAFramework-2.3\lib',
+#               'lib\commons-cli-1.2.jar',
+#               'lib\commons-codec-1.8.jar',
+#               'lib\commons-lang3-3.1.jar',
+#               'lib\commons-math3-3.1.1.jar',
+#               'lib\jcommon-1.0.20.jar',
+#               'lib\jfreechart-1.0.15.jar',
+#               'lib\JMetal-4.3.jar',
+#               'lib\rsyntaxtextarea.jar']
 
-except ValueError,e:
-    pass
-    #print(e)
-    #print("Could not initialize jinus as it has allready initialized")
-    #print(jnius_config.get_classpath())
+for d in moea_clspath:
+    jnius_config.add_classpath(os.path.join(moea_path, 'lib', d))
 
-from jnius import autoclass,cast, JavaException
+from jnius import autoclass, cast, JavaException
+
+        # jnius_config.add_classpath(*moea_clspath)
+
+
 
     
 def utility_function(uf_n,k_obj):
@@ -153,7 +161,7 @@ def ADM2_reference(rectangles,uf_n=0):
 
 def ADM2_solve(method,problem, rectangles,evals=2000,verbose=1,max_iter=10,**kwargs):
     
-    logging.info("AMD2 Solving: %s:%s"%(str((method.__name__,problem)),str(len(rectangles))))
+    logger.info("AMD2 Solving: %s:%s"%(str((method.__name__,problem)),str(len(rectangles))))
     iter=0
     objs=[]
     refs=[ADM2_reference(rectangles[-1],**kwargs)]
@@ -161,7 +169,7 @@ def ADM2_solve(method,problem, rectangles,evals=2000,verbose=1,max_iter=10,**kwa
     while iter<max_iter:
         new_rectangles=copy.deepcopy(rectangles[-1])
         
-        logging.debug("Running method %s"%method.__name__)     
+        logger.debug("Running method %s"%method.__name__)     
         objs.append(method(problem,refs[-1],evals=evals))
         try:
             if np.linalg.norm(refs[-1]-refs[-2]) < 0.000001:
@@ -169,10 +177,10 @@ def ADM2_solve(method,problem, rectangles,evals=2000,verbose=1,max_iter=10,**kwa
         except IndexError:
             pass
         
-        srnd=lambda v: list(map(lambda x:round(x,6),v))
+        srnd=lambda v: list([round(x,6) for x in v])
         ref_str="%s"%srnd(refs[-1])
         
-        logging.debug(format("ref point %s -> %s"%(ref_str.ljust(10*nf),srnd(objs[-1]))))
+        logger.debug(format("ref point %s -> %s"%(ref_str.ljust(10*nf),srnd(objs[-1]))))
         replace_rec=None
         distances=[]
         outside=True
@@ -201,11 +209,11 @@ def ADM2_solve(method,problem, rectangles,evals=2000,verbose=1,max_iter=10,**kwa
       
         ref=ADM2_reference(rectangles[-1])
         if np.array_equal(ref,refs[-1]):
-            logging.warning("Could not generate new refpoint from PO point %s"%objs[-1])
+            logger.warning("Could not generate new refpoint from PO point %s"%objs[-1])
             break
         refs.append(ref)
         iter +=1
-    logging.info("AMD2  %s:%s Done"%(str((method.__name__,problem)),str(len(rectangles))))
+    logger.info("AMD2  %s:%s Done"%(str((method.__name__,problem)),str(len(rectangles))))
     return objs[-1],rectangles,(method.__name__,problem),(objs,refs)
 
 
@@ -220,7 +228,7 @@ def solve(problem_def,method="RNSGAII",refpoint=None,epsilon=0.00001,evals=10000
             fd.write(" ".join(map(str,refpoint)))
             fd.close()
     
-    pyMOEARunnner=autoclass('pyMOEARunnner')
+    pyMOEARunnner = autoclass('pyMOEARunnner')
     rn=pyMOEARunnner()
     res=rn.solve(method,evals,*problem_def)
     os.chdir(olddir)
@@ -228,7 +236,7 @@ def solve(problem_def,method="RNSGAII",refpoint=None,epsilon=0.00001,evals=10000
     points=[]
     siter=res.iterator()
     while siter.hasNext():
-        sol=siter.next()
+        sol=next(siter)
         points.append(sol.getObjectives())
     return points
 
@@ -258,8 +266,12 @@ def problem(problem_name,nf,nx=None):
     
     try:
         prob_def=problem_def(problem_name,nf,nx=nx)
-    except:
-        raise Exception("Could not generate problem %s"%problem_name)
+    except IOError as e:
+        print problem_name
+        import traceback
+        traceback.print_exc()
+
+        raise Exception("Could not generate problem %s\n%s" % (problem_name, e))
     problemClass=autoclass(prob_def[0])
     # Problem families where number of objectives can be changed
     NF=['DTLZ']
@@ -275,7 +287,7 @@ def problem_def(problem_name,nf,nx=None):
         }
 
     cdir = None
-    for key in NX.keys():
+    for key in list(NX.keys()):
         if problem_name.startswith(key):
             if nx is None:
                 idx=int(problem_name[len(key)])-1
@@ -315,7 +327,7 @@ def iterate(preference,ref,objs,tol=0.01,p=.9):
     trees=[]
     for i in range(nf):
         trees.append(tree.DecisionTreeClassifier())
-        trees[-1].fit(A[:,range(0,i)+range(i+1,nf)], A[:,i])
+        trees[-1].fit(A[:,list(range(0,i))+list(range(i+1,nf))], A[:,i])
     
     obj=objs[-1]
     S=[None]*len(obj)
@@ -353,14 +365,13 @@ def ACH(x,problem,ref,rho=0.001):
     A=np.array([f,ref,nadir,utopian])    
     return np.max(np.apply_along_axis(lambda x:(x[0]-x[1])/(x[2]-x[3]),0,A)) \
                  +rho*np.sum(np.apply_along_axis(lambda x:x[0]/(x[2]-x[3]),0,A))
-               
 
 
-def ACH_solution(problem_name,refpoint,evals=10000,nx=None):
+def ACH_solution(problem_name, refpoint, evals = 50000, nx = None):
     nf=len(refpoint)
     prob=problem(problem_name,nf,nx=nx)
     bds=bounds(prob)
-    res=differential_evolution(ACH,bds,args=(prob,refpoint),maxiter=evals)
+    res = differential_evolution(ACH, bds, args = (prob, refpoint), maxiter = evals)
     return evaluate(prob,res.x)
 
 def rNSGAII_solution(problem,refpoint,evals=10000):
@@ -376,10 +387,59 @@ def Simple_solution(problem_name,refpoint,evals=None):
     prob=problem(problem_name,nf,nx=nf)
     return prob.evaluate(None,refpoint)
 
-def proj_ref(nf,problem,ref,evals=20000,nx=None):
-    print "Projecting %s_%i for %s"%(problem,nf,str(ref))
-    res=ACH_solution(problem,ref,evals=evals,nx=nx)
-    return (nf,problem,ref,res)
+
+def proj_ref(nf, problem, ref, evals = 20000, nx = None):
+    print("Projecting %s_%i for %s" % (problem, nf, str(ref)))
+    res = ACH_solution(problem, ref, evals = evals, nx = nx)
+    with open(os.path.join("temp", "%s-%s_%s" % (problem, nf, ref)) + ".res", "w") as fd:
+        fd.write(str(res))
+
+    return (nf, problem, ref, res)
+
+
+def proj_refs(results, PO = None, evals = 50000, nx = None, jobs = None):
+    """ Update PO dictonary with reference points projected to Pareto frontier
+
+    Formats
+
+    results (dict)
+    key tuple(nf,problem,problem)
+    values [
+     [Final solution]          # Iteration n
+     [[aspir],[weights]]
+     [[solution],[ref point]]  # Iteration 1
+     ...
+     [[solution],[ref point]]  # Iteration n
+    ]
+
+
+    PO (dict)
+
+
+
+    """
+    proj_refs = []
+    if jobs == None:
+        jobs = max(1, multiprocessing.cpu_count() - 1)
+    if PO is None:
+        PO = {}
+    for nf, method, problem in sorted(results.keys(), key = operator.itemgetter(0, 1, 2)):
+        # if nf==4 or problem=="DTLZ4":
+        #    continue
+        dist = []
+        for res in results[(nf, method, problem)]:
+            obj = res[0]
+            ref = tuple(res[1][0])
+            if not PO.has_key((nf, problem, ref)):
+                proj_refs.append((nf, problem, ref))
+    print ("Total number of jobs %s" % len(proj_refs))
+    res = Parallel(n_jobs = jobs)(
+           delayed(proj_ref)(job[0], job[1], job[2], evals = evals, nx = nx)
+                for job in proj_refs
+        )
+    for r in res:
+        PO[tuple(r[:3])] = r[3]
+    return PO
 
 
 def agent_paraller_orig(target,preference,adm=1,evals=20000):
@@ -396,10 +456,10 @@ def agent_paraller(target,preference,adm=1,evals=20000):
     return ADM2_solve(method,problem,preference,evals)
 
 def agent_solve(method,problem,preference,adm=1,evals=20000):
-    print "Solving: %s:%s"%(str((method.__name__,problem)),str(len(preference[0])))
+    print "Solving: %s:%s" % (str((method.__name__, problem)), str(len(preference[0])))
     w=tuple(preference[1])
 
-    i=0
+    i = 0
     objs=[]
     refs=[preference[0][:]]
     nf = len(refs[0])
@@ -410,12 +470,10 @@ def agent_solve(method,problem,preference,adm=1,evals=20000):
             break
         refs.append(new_ref[:])
         i+=1
-    print "Solved: %s:\n%s"%(str((method.__name__,problem)),str(objs[-1]))
+    print "Solved: %s:\n%s" % (str((method.__name__, problem)), str(objs[-1]))
     return objs[-1],preference,(method,problem),(objs,refs)
 
 if __name__=='__main__':
-    import os
-    import sys
 
     import argparse
 
@@ -424,7 +482,7 @@ if __name__=='__main__':
                         help='Problem to be solved',required=True)
 
     parser.add_argument('-m','--method', type=str, nargs='+',
-                   help='Problem to be solved', default=["RNSGAII"])
+                   help = 'Method to be used', default = ["RNSGAII"])
 
     parser.add_argument('-r', '--refpoint', type=float, nargs='+',
                         help='reference point',default=None)
@@ -438,6 +496,10 @@ if __name__=='__main__':
     parser.add_argument('--plot', help='Plot the approximate set',action='store_true')
 
     args=parser.parse_args()
+    logger = logging.getLogger('pyMOEA')
+    logger.addHandler(logging.StreamHandler)
+    logger.setLevel(logging.DEBUG)
+    logging.info("AAA")
 
     for method in args.method:
         for problem in args.problem:
@@ -445,5 +507,5 @@ if __name__=='__main__':
             if args.plot:
                 plot(points)
     if args.plot:
-        answer = raw_input('Press enter to exit')
+        answer = input('Press enter to exit')
 

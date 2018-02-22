@@ -63,7 +63,7 @@ class Problem(object):
    
     def evaluate(self,solution):
         map
-        x=map(lambda x:x.value,self.variables)
+        x=[x.value for x in self.variables]
         solution.objectives[0]=50*x[0]**4+10*x[1]**4
         solution.objectives[1]=30*(x[0]-5)**4+100*(x[1]-3)**4
         solution.objectives[2]=70*(x[0]-2)**4+20*(x[1]-4)**4
