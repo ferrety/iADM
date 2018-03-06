@@ -90,11 +90,11 @@ class hADM:
         return PO[(self.nf, self.problem, tuple(refp))]
 
     def _random_pref(self):
-        aspir = self.ideal[:]
+        aspir = self.nadir[:]
         w = [None] * self.nf
         for k in range(self.nf):
             w[k] = random.random()
-            if random.random() < .5:
+            if not random.random() < .5 * w[k]:
                 aspir[k] = random.uniform(self.ideal[k], self.nadir[k])
         return tuple(aspir), tuple(w)
 
