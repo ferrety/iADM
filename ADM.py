@@ -7,6 +7,7 @@ import pickle
 import os
 
 import numpy as np
+import pandas as pd
 from sklearn import tree
 from scipy import spatial
 
@@ -15,12 +16,9 @@ def iterate():
     return [True, [.5, .5, .5, .5, .5, .5, .1]]
 
 
-RUNPATH = r'D:\JYU\iADM'
+def ffile(name, d="results"):
 
-
-def ffile(name, d=""):
-
-    return os.path.join(RUNPATH, d, name)
+    return os.path.join(os.path.realpath(__file__), d, name)
 
 
 def preferences(nf, it):
@@ -36,39 +34,58 @@ class hADM:
     def __init__(self,
                  problem='DLTZ2',
                  nf=3,
+                 method='InteractiveMethod',
                  preference=None,
                  nx=None,
+                 resdir='.',
                  tol=0.01,
-                 p=.9):
+                 p=.9,
+                 extra_parameters=None):
         self.problem = problem
         self.nf = int(nf)
         self.stop = False
+        self.method = method
         self.ideal = [0.0] * self.nf
         self.nadir = [1.0] * self.nf
-        self.ideal[-1] = 4.0
-        self.nadir[-1] = 6.0
+        if problem == "DTLZ7":
+            self.ideal[-1] = 3.0
+            self.nadir[-1] = 16.0
         self.nx = int(nx)
         if preference is None:
             self.preference = self._random_pref()
         else:
             self.preference = preference
+        self.resdir = resdir
         self.prev_refp = self.preference[0]
         self.refs = [self.preference[0][:]]
 
-        self.aspPO = self._proj_ref(self.preference[0])
+        self.extra_parameters = extra_parameters
+
         self.iter = 0  # Current iteration
         self.sPO = []  # Set of Pareto optimal solutions selected by ADM
         self.tol = tol
         self.p = p
+        self.PO = None
+
+    def _fn(self, fn):
+        if not os.path.exists(self.resdir):
+            os.makedirs(self.resdir)
+
+        return os.path.join(self.resdir, fn)
+
+    def setPO(self, PO):
+        self.PO = PO
 
     def _proj_ref(self, refp):
-        PO = pickle.load(open(ffile("PO.dmp"), "r"))
-        if (self.nf, self.problem, tuple(refp)) in PO:
+        try:
+            PO = pickle.load(open(self.fn("PO.dmp"), "r"))
+        except IOError:
+            PO = {}
+        if (self.nf, self.problem, tuple(refp)) not in PO:
             # We do not wish to start JVM if not needed
             import pyMOEA
             logging.info("Updating PO.dmp")
-            PO[(self.nf, self.problem, tuple(refp))] = pyMOEA.proj_ref(
-                self.nf, self.problem, refp, evals=50000, nx=self.nx)[-1]
+            PO[(self.nf, self.problem, tuple(refp))] = pyMOEA.proj_ref(self.nf, self.problem, refp, evals=50000, nx=self.nx)[-1]
             pickle.dump(PO, open(ffile("PO.dmp"), "w"))
         return PO[(self.nf, self.problem, tuple(refp))]
 
@@ -79,7 +96,7 @@ class hADM:
             w[k] = random.random()
             if random.random() < .5:
                 aspir[k] = random.uniform(self.ideal[k], self.nadir[k])
-        return aspir, w
+        return tuple(aspir), tuple(w)
 
     def next_refp(self, ref, objs):
         """ Return next reference point, or None if the process is finished
@@ -137,14 +154,24 @@ class hADM:
             return ref
         return new_ref
 
-    def save(self, method, run):
-        fn = ffile("%s-%s_%i.dmp" % (method, self.problem, self.nf))
-        try:
-            res = pickle.load(open(fn, "r"))
-        except IOError:
-            res = {}
-        res[(self.problem, self.nf, run)] = (self.refs, self.sPO)
-        pickle.dump(res, open(fn, "w"))
+    def save(self, run):
+        fn = ffile("%s-%s_%i.dmp" % (self.method, self.problem, self.nf))
+        hdf = pd.HDFStore(fn)
+        dfa = hdf['runs']
+
+        # df = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
+        df = {}
+        df['problem'] = self.problem
+        df['nf'] = self.nf
+        for extra in self.extra_parameters.keys():
+            df[extra] = self.extra_parameters[extra]
+        df['refs'] = self.refs
+        df['PO'] = self.sPO
+
+        dfa = dfa.append(pd.DataFrame(df))
+
+        hdf['runs'] = dfa
+        hdf.close()
 
     def next_iteration(self, PO):
         logging.info("Solving: %s:%i", self.problem, self.nf)
