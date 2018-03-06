@@ -69,7 +69,7 @@ class iKRVEA:
 
     def project_prefs(self, fkt_project):
         try:
-            PO = pickle.load(open(self._fn("PO.dmb")), "r")
+            PO = pickle.load(open(self._fn("PO.dmp"),"r"))
         except IOError:
             PO = {}
         self.create_preferences()
@@ -95,7 +95,7 @@ class iKRVEA:
         for r in res:
             PO[tuple(r[:3])] = r[3]
 
-        pickle.dump(PO, open(self._fn("PO.dmb")), "w")
+        pickle.dump(PO, open(self._fn("PO.dmp"), w))
 
         return PO
 
