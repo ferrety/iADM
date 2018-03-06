@@ -23,10 +23,10 @@ import platform
 
 class iKRVEA:
 
-    def __init__(self, resdir="ik-rvea", ikrvea_path='..', 
-                 NFs=[4, 6, 8], 
+    def __init__(self, resdir="ik-rvea", ikrvea_path='..',
+                 NFs=[4, 6, 8],
                  problems=['DTLZ1' , 'DTLZ2', 'DTLZ4', 'DTLZ5', 'DTLZ7'],
-                 max_jobs=3,
+                 max_jobs = None,
                  runs=15,
                  ):
         self.resdir = resdir
@@ -37,12 +37,14 @@ class iKRVEA:
         self.problems = problems
         
         self.nx = 10
-        if platform.node() == "paasikivi":
-            max_jobs = min(32, max_jobs)
+
+        # Just to make sure
+        plat_jobs= platform_max_jobs()
+        if max_jobs is None:
+            self.max_jobs = plat_jobs
         else:
-            max_jobs = min(multiprocessing.cpu_count() - 1, max_jobs)
-        self.max_jobs = max_jobs
-        
+            self.max_jobs = min(max_jobs, plat_jobs)
+
         self.runs = runs
         self.ikrvea_path = ikrvea_path
     def _fn(self, filename):
@@ -124,13 +126,42 @@ def proj_ref(self_arg, nf, problem_name, ref, evals=20000, nx=None):
     return (nf, problem_name, ref, res)
 
 
+def platform_max_jobs():
+    """ Hard set job limit for paasikivi.it.jyu.fi
+
+    """
+    if platform.node() == "paasikivi":
+        max_jobs = 15 
+    else:
+        max_jobs = multiprocessing.cpu_count() - 1
+    return max_jobs
+    
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create results for ikrvea journal article')
+    max_jobs = platform_max_jobs()
+    
+    parser = argparse.ArgumentParser(description = 'Create results for ikrvea journal article', formatter_class = argparse.ArgumentDefaultsHelpFormatter)
     # parser.add_argument('--no-preferences', '-np', action='store_false', help="Do not generate preference information", default=True)
     parser.add_argument('--ikrvea', type=str, help="Path to ik-rvea matlab files", default=r'../')
-    parser.add_argument('--max-jobs', '-j', type=int, help="Maximum concurrent runs", default=None)
-    
+    parser.add_argument('--jobs', '-j', type = int, metavar = "[1-%i]" % max_jobs,
+                        help = "Maximum number concurrent runs",
+                        default = multiprocessing.cpu_count() - 1, choices=range(1,max_jobs))
+    parser.add_argument('--runs', '-r', type = int, help = "Runs", default = 15)
+    parser.add_argument('-p', '--problems', type = str, nargs = '+',
+                        help = 'Problems to be solved', default = ['DTLZ1' , 'DTLZ2', 'DTLZ4', 'DTLZ5', 'DTLZ7'])
+    parser.add_argument('-d', '--resdir', type = str,
+                        help = 'Result directory', default = './ik-rvea')
+
+    parser.add_argument('--clear', action = 'store_true', help = "Clear previous results")
+
     args = parser.parse_args()
 
-    ikrvea = iKRVEA(resdir="ik-rvea", ikrvea_path=args.ikrvea, NFs=[4], problems=['DTLZ2'], runs=15)
+    if args.clear:
+        for f in ["preferences.dmp", "PO.dmp"]:
+            try:
+                os.unlink(os.path.join(args.resdir, f))
+            except OSError:
+                pass
+
+    ikrvea = iKRVEA(resdir = args.resdir, ikrvea_path = args.ikrvea, NFs = [4], problems = args.problems, runs = args.runs, max_jobs = args.jobs)
     PO = ikrvea.project_prefs(proj_ref)
