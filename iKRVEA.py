@@ -55,15 +55,16 @@ class iKRVEA:
             self.preferences = pickle.load(open(self._fn("preferences.dmp"), "r"))
         except IOError:
             self.preferences = {}
-        for nf in self.NFs:
-            if self.preferences.has_key(nf):
-                continue
-            pref = []
-            for i in range(self.runs):
-                # TODO: Must be problem specific, between icv and nadir
-                ta = ADM.hADM('DTLZ1', nf, nx=10)
-                pref.append(ta.preference)
-            self.preferences[nf] = tuple(pref)
+        for problem in self.problems:
+            for nf in self.NFs:
+                if self.preferences.has_key((nf, problem)):
+                    continue
+                pref = []
+                for i in range(self.runs):
+                    # TODO: Must be problem specific, between icv and nadir
+                    ta = ADM.hADM(problem, nf, nx=10)
+                    pref.append(ta.preference)
+                self.preferences[nf, problem] = tuple(pref)
 
         pickle.dump(self.preferences, open(self._fn("preferences.dmp"), "w"))
 
@@ -72,21 +73,23 @@ class iKRVEA:
             PO = pickle.load(open(self._fn("PO.dmp"),"r"))
         except IOError:
             PO = {}
-        self.create_preferences()
+        
         jobs = []
         evals = 20000
-        for nf in self.NFs:
-            for pref in self.preferences[nf]:
-                for p in self.problems:
-                    if (nf, p, pref) not in PO:
-                        jobs.append({
-                                'self_arg':self,
-                                'problem_name':p,
-                                'nf':nf,
-                                'ref':pref,
-                                'nx':self.nx,
-                                'evals':evals
-                                })
+        self.create_preferences()
+        for problem in self.problems:
+            for nf in self.NFs:
+                for pref in self.preferences[(nf, problem)]:
+                    for problem in self.problems:
+                        if (nf, problem, pref) not in PO:
+                            jobs.append({
+                                    'self_arg':self,
+                                    'problem_name':problem,
+                                    'nf':nf,
+                                    'ref':pref,
+                                    'nx':self.nx,
+                                    'evals':evals
+                                    })
 
         res = Parallel(n_jobs=self.max_jobs)(
                delayed(fkt_project)(**job)
@@ -95,7 +98,7 @@ class iKRVEA:
         for r in res:
             PO[tuple(r[:3])] = r[3]
 
-        pickle.dump(PO, open(self._fn("PO.dmp"), w))
+        pickle.dump(PO, open(self._fn("PO.dmp"), "w"))
 
         return PO
 
@@ -152,6 +155,9 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--resdir', type = str,
                         help = 'Result directory', default = './ik-rvea')
 
+    parser.add_argument('-k', '--objectives', type=int, nargs='+',
+                        help='Number of objectives', default=[4, 6, 8])
+
     parser.add_argument('--clear', action = 'store_true', help = "Clear previous results")
 
     args = parser.parse_args()
@@ -163,5 +169,5 @@ if __name__ == '__main__':
             except OSError:
                 pass
 
-    ikrvea = iKRVEA(resdir = args.resdir, ikrvea_path = args.ikrvea, NFs = [4], problems = args.problems, runs = args.runs, max_jobs = args.jobs)
+    ikrvea = iKRVEA(resdir=args.resdir, ikrvea_path=args.ikrvea, NFs=args.objectives, problems=args.problems, runs=args.runs, max_jobs=args.jobs)
     PO = ikrvea.project_prefs(proj_ref)
