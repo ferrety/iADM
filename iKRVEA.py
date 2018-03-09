@@ -80,16 +80,15 @@ class iKRVEA:
         for problem in self.problems:
             for nf in self.NFs:
                 for pref in self.preferences[(nf, problem)]:
-                    for problem in self.problems:
-                        if (nf, problem, pref) not in PO:
-                            jobs.append({
-                                    'self_arg':self,
-                                    'problem_name':problem,
-                                    'nf':nf,
-                                    'ref':pref,
-                                    'nx':self.nx,
-                                    'evals':evals
-                                    })
+                    if (nf, problem, pref) not in PO:
+                        jobs.append({
+                                'self_arg':self,
+                                'problem_name':problem,
+                                'nf':nf,
+                                'ref':pref,
+                                'nx':self.nx,
+                                'evals':evals
+                                })
 
         res = Parallel(n_jobs=self.max_jobs)(
                delayed(fkt_project)(**job)
