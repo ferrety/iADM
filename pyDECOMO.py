@@ -58,7 +58,7 @@ class pyDECOMO(Problem):
         except AttributeError:
             mvalues = values[:]
         try:
-            return list(self.eng.P_objective('value', self.problem_name, self.nf, matlab.double(mvalues))[0])
+            return list(self.eng.P_objective('value', self.problem_name, matlab.double([self.nf]), matlab.double(mvalues))[0])
         except Exception, e:
             raise e
 
