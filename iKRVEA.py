@@ -1,24 +1,23 @@
 """ Python codes for 'An interactive surrogate-assisted reference vector guided evolutionary multiobjective optimization algorithm'
 
-.. seealso::
-
-    Overleaf <https://www.overleaf.com/12692710tnqqbwcvgkpb>
+** seealso:: Overleaf <https://www.overleaf.com/12692710tnqqbwcvgkpb>
 
 
 """
-
-import os, pickle
+import argparse
 import multiprocessing
-from joblib import Parallel, delayed
+import os
+import pickle
+import platform
+
 import numpy as np
+from joblib import Parallel, delayed
+from scipy.optimize import differential_evolution
+from pandas.lib import has_infs_f4
 
 import ADM
 import pyDECOMO
-from scipy.optimize import differential_evolution
 
-import argparse
-from pandas.lib import has_infs_f4
-import platform
 
 
 class iKRVEA:
@@ -109,15 +108,17 @@ class iKRVEA:
                      + rho * np.sum(np.apply_along_axis(lambda x:x[0] / (x[2] - x[3]), 0, A))
 
     def ACH_solution(self, problem_name, nf, refpoint, evals=50000, nx=None):
-        problem = self.problem(problem_name, nf)
-        
-        bds = np.rot90(np.array(([[0.0] * self.nx, [1.0] * self.nx])))
+        with  pyDECOMO.pyDECOMO(problem_name, nf, self.ikrvea_path) as problem:
+            bds = np.rot90(np.array(([[0.0] * self.nx, [1.0] * self.nx])))
 
-        res = differential_evolution(self.ACH, bds, args=(problem, refpoint), maxiter=evals)
-        return problem.evaluate(res.x)
+            res = differential_evolution(self.ACH, bds, args=(problem, refpoint), maxiter=evals)
+            values = problem.evaluate(res.x)
+            print("delete problem %s %i" % (problem_name, nf))
+        return values
 
     def problem(self, problem_name, nf):
         """ Construct a new problem instance"""
+
         return pyDECOMO.pyDECOMO(problem_name, nf, self.ikrvea_path)
 
 
@@ -135,9 +136,31 @@ def platform_max_jobs():
     if platform.node() == "paasikivi":
         max_jobs = 15 
     else:
-        max_jobs = multiprocessing.cpu_count() - 1
+        max_jobs = (multiprocessing.cpu_count() - 1) / 2
+        max_jobs += max_jobs / 2
     return max_jobs
-    
+
+
+_PROBLEMS = ['DTLZ1' , 'DTLZ2', 'DTLZ4', 'DTLZ5', 'DTLZ7']
+_NFS = [4, 6, 8]
+_RESDIR = './ik-rvea'
+_IKRVEA = r'../'
+
+
+def main(resdir=_RESDIR, ikrvea_path=_IKRVEA, NFs=_NFS, problems=_PROBLEMS, runs=15, clear=False, max_jobs=None):
+    if max_jobs is None:
+        max_jobs = platform_max_jobs()
+
+    if clear:
+        for f in ["preferences.dmp", "PO.dmp"]:
+            try:
+                os.unlink(os.path.join(resdir, f))
+            except OSError:
+                pass
+
+    ikrvea = iKRVEA(resdir=resdir, ikrvea_path=ikrvea_path, NFs=NFs, problems=problems, runs=runs, max_jobs=max_jobs)
+    ikrvea.project_prefs(proj_ref)
+
 
 if __name__ == '__main__':
     max_jobs = platform_max_jobs()
@@ -160,13 +183,4 @@ if __name__ == '__main__':
     parser.add_argument('--clear', action = 'store_true', help = "Clear previous results")
 
     args = parser.parse_args()
-
-    if args.clear:
-        for f in ["preferences.dmp", "PO.dmp"]:
-            try:
-                os.unlink(os.path.join(args.resdir, f))
-            except OSError:
-                pass
-
-    ikrvea = iKRVEA(resdir=args.resdir, ikrvea_path=args.ikrvea, NFs=args.objectives, problems=args.problems, runs=args.runs, max_jobs=args.jobs)
-    PO = ikrvea.project_prefs(proj_ref)
+    main(resdir=args.resdir, ikrvea_path=args.ikrvea, NFs=args.objectives, problems=args.problems, runs=args.runs, max_jobs=args.jobs)

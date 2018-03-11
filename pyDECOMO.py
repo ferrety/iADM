@@ -16,9 +16,11 @@ see https://se.mathworks.com/help/matlab/matlab_external/connect-python-to-runni
 
 import os
 
-import matlab.engine
-
 import numpy as np
+import sys
+
+import matlab
+import matlab.engine
 
 
 class Problem(object):
@@ -33,20 +35,27 @@ class pyDECOMO(Problem):
         self.problem_name = problem_name
         self.nf = nf
 
-        self.eng = self._start_matlab_eng()
-
+        self.extra_paths = []
+        self.__start_eng()
         # Use actual Pareto Frontier
         # self.ideal, self.nadir = self.__bounds()
 
-    def _start_matlab_eng(self, extra_paths=[]):
+    def __enter__(self):
+        return self
 
-        eng = matlab.engine.start_matlab()
-        eng.addpath(self.ikrvea)
-        eng.addpath(os.path.join(self.ikrvea, 'Public'))
-        for path in extra_paths:
-            eng.addpath(path)
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
-        return eng
+    def __start_eng(self):
+        self.eng = matlab.engine.start_matlab()
+        self.eng.addpath(self.ikrvea)
+        self.eng.addpath(os.path.join(self.ikrvea, 'Public'))
+        for path in self.extra_paths:
+            self.eng.addpath(path)
+
+    def close(self):
+        self.eng.quit()
+        sys.stdout.flush()
 
     def evaluate(self, values):
         """ Evaluate DECOMO problem
