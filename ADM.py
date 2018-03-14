@@ -21,7 +21,7 @@ def ffile(name, d="results"):
     return os.path.join(os.path.realpath(__file__), d, name)
 
 
-def preferences(nf, it):
+def preferences(problem, nf, it):
     preferences = pickle.load(open(ffile('preferences.dmp'), 'r'))
     print(nf, it, preferences[int(nf)][int(it)])
     return preferences[int(nf)][int(it)]
