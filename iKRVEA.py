@@ -175,7 +175,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--problems', type = str, nargs = '+',
                         help = 'Problems to be solved', default = ['DTLZ1' , 'DTLZ2', 'DTLZ4', 'DTLZ5', 'DTLZ7'])
     parser.add_argument('-d', '--resdir', type = str,
-                        help = 'Result directory', default = './ik-rvea')
+                        help='Result directory', default='./results')
 
     parser.add_argument('-k', '--objectives', type=int, nargs='+',
                         help='Number of objectives', default=[4, 6, 8])
