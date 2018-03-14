@@ -11,6 +11,8 @@ import pandas as pd
 from sklearn import tree
 from scipy import spatial
 
+logger = logging.getLoggerClass(__name__)
+
 
 def iterate():
     return [True, [.5, .5, .5, .5, .5, .5, .1]]
@@ -84,7 +86,7 @@ class hADM:
         if (self.nf, self.problem, tuple(refp)) not in PO:
             # We do not wish to start JVM if not needed
             import pyMOEA
-            logging.info("Updating PO.dmp")
+            logger.info("Updating PO.dmp")
             PO[(self.nf, self.problem, tuple(refp))] = pyMOEA.proj_ref(self.nf, self.problem, refp, evals=50000, nx=self.nx)[-1]
             pickle.dump(PO, open(ffile("PO.dmp"), "w"))
         return PO[(self.nf, self.problem, tuple(refp))]
@@ -174,7 +176,7 @@ class hADM:
         hdf.close()
 
     def next_iteration(self, PO):
-        logging.info("Solving: %s:%i", self.problem, self.nf)
+        logger.info("Solving: %s:%i", self.problem, self.nf)
         try:
             if isinstance(PO, (np.ndarray, np.generic)):
                 PO = PO.reshape(len(PO) / self.nf, self.nf).tolist()
@@ -190,7 +192,7 @@ class hADM:
                 self.stop = True
                 return None
             self.prev_refp = new_ref
-            logging.info("Solved: %s:\n%s", self.problem, new_ref)
+            logger.info("Solved: %s:\n%s", self.problem, new_ref)
             return new_ref
         except ValueError:
             self.stop = True
