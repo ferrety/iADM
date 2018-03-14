@@ -19,8 +19,6 @@ import os
 import numpy as np
 import sys
 
-import matlab
-import matlab.engine
 
 
 class Problem(object):
@@ -47,6 +45,8 @@ class pyDECOMO(Problem):
         self.close()
 
     def __start_eng(self):
+        import matlab.engine
+
         self.eng = matlab.engine.start_matlab()
         self.eng.addpath(self.ikrvea)
         self.eng.addpath(os.path.join(self.ikrvea, 'Public'))
@@ -62,6 +62,7 @@ class pyDECOMO(Problem):
 
         """
         # TODO: Constructing matlab arary cannot be like this!
+        import matlab
         try:
             mvalues = values.tolist()
         except AttributeError:
@@ -98,6 +99,7 @@ class pyDECOMO(Problem):
 
     def __bounds(self):
         """ Find boundaries for the DECOMO problem. also initializes the problem"""
+        import matlab
         pop = np.array(self.eng.P_objective('true', self.problem_name, matlab.double([self.nf]), 10000))
 
         ideal = np.min(pop, 0)
