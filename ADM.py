@@ -11,7 +11,9 @@ import pandas as pd
 from sklearn import tree
 from scipy import spatial
 
-logger = logging.getLoggerClass(__name__)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d]  %(message)s', filename='ADM.log', datefmt="%Y-%m-%d %H:%M:%S")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def iterate():
@@ -20,29 +22,37 @@ def iterate():
 
 def ffile(name, d="results"):
 
-    return os.path.join(os.path.realpath(__file__), d, name)
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), d, name)
 
 
 def preferences(problem, nf, it):
     preferences = pickle.load(open(ffile('preferences.dmp'), 'r'))
-    print(nf, it, preferences[int(nf)][int(it)])
-    return preferences[int(nf)][int(it)]
+    pref = preferences[(int(nf), problem)][int(it)]
+    pareto_points = pickle.load(open(ffile('PO.dmp'), 'r'))
+    aspPO = pareto_points[(int(nf), problem, pref)]
+    return (pref, aspPO)
 
 
 class hADM:
     """ Automatic Decision Maker (ADM)
-    introduced in PPSN2016 utilizing decision tree for the current context"""
+    introduced in PPSN2016 utilizing decision tree for the current context
+
+    :var preference [double, double]: [Initial reference point, weights for each objective]
+    :var aspPO list[double]: Project intial reference points
+
+    """
 
     def __init__(self,
                  problem='DLTZ2',
                  nf=3,
                  method='InteractiveMethod',
-                 preference=None,
+                 preference=None,  # Initial preferences and corresponding PO
                  nx=None,
-                 resdir='.',
+                 resdir='./results',
                  tol=0.01,
                  p=.9,
                  extra_parameters=None):
+        logger.info(preference)
         self.problem = problem
         self.nf = int(nf)
         self.stop = False
@@ -55,8 +65,10 @@ class hADM:
         self.nx = int(nx)
         if preference is None:
             self.preference = self._random_pref()
+            self.aspPO = None
         else:
-            self.preference = preference
+            self.preference = preference[0]
+            self.aspPO = preference[1]
         self.resdir = resdir
         self.prev_refp = self.preference[0]
         self.refs = [self.preference[0][:]]
@@ -67,16 +79,15 @@ class hADM:
         self.sPO = []  # Set of Pareto optimal solutions selected by ADM
         self.tol = tol
         self.p = p
-        self.PO = None
+
+    def stop(self):
+        return self.stop
 
     def _fn(self, fn):
         if not os.path.exists(self.resdir):
             os.makedirs(self.resdir)
 
         return os.path.join(self.resdir, fn)
-
-    def setPO(self, PO):
-        self.PO = PO
 
     def _proj_ref(self, refp):
         try:
@@ -88,7 +99,7 @@ class hADM:
             import pyMOEA
             logger.info("Updating PO.dmp")
             PO[(self.nf, self.problem, tuple(refp))] = pyMOEA.proj_ref(self.nf, self.problem, refp, evals=50000, nx=self.nx)[-1]
-            pickle.dump(PO, open(ffile("PO.dmp"), "w"))
+            pickle.dump(PO, open(self._fn("PO.dmp"), "w"))
         return PO[(self.nf, self.problem, tuple(refp))]
 
     def _random_pref(self):
@@ -103,7 +114,7 @@ class hADM:
     def next_refp(self, ref, objs):
         """ Return next reference point, or None if the process is finished
         """
-
+        logger.debug(ref)
         aspir = self.preference[0]
         w = self.preference[1]
         nf = len(aspir)
@@ -121,6 +132,7 @@ class hADM:
         if len(objs) == 1:
             obj = objs[-1]
         else:
+            logger.debug(self.aspPO)
             A = np.array(objs)
             self.sPO.append(list(A[spatial.KDTree(A).query(self.aspPO)[1]]))
             obj = list(A[spatial.KDTree(A).query(self.aspPO)[1]])
@@ -157,12 +169,16 @@ class hADM:
         return new_ref
 
     def save(self, run):
-        fn = ffile("%s-%s_%i.dmp" % (self.method, self.problem, self.nf))
-        hdf = pd.HDFStore(fn)
-        dfa = hdf['runs']
+        fn = self._fn("%s-%s_%i.dmp" % (self.method, self.problem, self.nf))
+        # hdf = pd.HDFStore(fn)
+        # dfa = hdf['runs']
 
         # df = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
-        df = {}
+        try:
+            dfa = pd.read_csv(fn)
+        except IOError:
+            dfa = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
+        df = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
         df['problem'] = self.problem
         df['nf'] = self.nf
         for extra in self.extra_parameters.keys():
@@ -172,11 +188,12 @@ class hADM:
 
         dfa = dfa.append(pd.DataFrame(df))
 
-        hdf['runs'] = dfa
-        hdf.close()
+        dfa.save_csv(fn)
+        # hdf['runs'] = dfa
+        # hdf.close()
 
     def next_iteration(self, PO):
-        logger.info("Solving: %s:%i", self.problem, self.nf)
+        logger.info("Solving: %s:%i", self.problem, self.nf, PO)
         try:
             if isinstance(PO, (np.ndarray, np.generic)):
                 PO = PO.reshape(len(PO) / self.nf, self.nf).tolist()
