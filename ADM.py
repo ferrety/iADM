@@ -13,7 +13,7 @@ from scipy import spatial
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d]  %(message)s', filename='ADM.log', datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def iterate():
@@ -30,6 +30,7 @@ def preferences(problem, nf, it):
     pref = preferences[(int(nf), problem)][int(it)]
     pareto_points = pickle.load(open(ffile('PO.dmp'), 'r'))
     aspPO = pareto_points[(int(nf), problem, pref)]
+    logger.debug("Preference %i\n" % it, (pref, aspPO))
     return (pref, aspPO)
 
 
@@ -62,7 +63,7 @@ class hADM:
         if problem == "DTLZ7":
             self.ideal[-1] = 3.0
             self.nadir[-1] = 16.0
-        self.nx = int(nx)
+        self.nx = nx
         if preference is None:
             self.preference = self._random_pref()
             self.aspPO = None
@@ -76,7 +77,7 @@ class hADM:
         self.extra_parameters = extra_parameters
 
         self.iter = 0  # Current iteration
-        self.sPO = []  # Set of Pareto optimal solutions selected by ADM
+        self.sPO = []  # Set of Pareto optimal solutions selected by the ADM
         self.tol = tol
         self.p = p
 
@@ -91,7 +92,7 @@ class hADM:
 
     def _proj_ref(self, refp):
         try:
-            PO = pickle.load(open(self.fn("PO.dmp"), "r"))
+            PO = pickle.load(open(self._fn("PO.dmp"), "r"))
         except IOError:
             PO = {}
         if (self.nf, self.problem, tuple(refp)) not in PO:
@@ -132,7 +133,6 @@ class hADM:
         if len(objs) == 1:
             obj = objs[-1]
         else:
-            logger.debug(self.aspPO)
             A = np.array(objs)
             self.sPO.append(list(A[spatial.KDTree(A).query(self.aspPO)[1]]))
             obj = list(A[spatial.KDTree(A).query(self.aspPO)[1]])
@@ -169,28 +169,30 @@ class hADM:
         return new_ref
 
     def save(self, run):
-        fn = self._fn("%s-%s_%i.dmp" % (self.method, self.problem, self.nf))
-        # hdf = pd.HDFStore(fn)
-        # dfa = hdf['runs']
+        logger.debug(self.sPO)
+        logger.debug(self.refs)
 
-        # df = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
+        fn = self._fn("%s-%s_%i.csv" % (self.method, self.problem, self.nf))
+
+        columns = ['problem', 'nf', 'pref', 'refs', 'PO'] + self.extra_parameters.keys()
+
         try:
             dfa = pd.read_csv(fn)
         except IOError:
-            dfa = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
-        df = pd.DataFrame(columns=['problem', 'nf', self.extra_parameters.keys(), 'refs', 'PO'])
+            dfa = pd.DataFrame(columns=columns)
+        df = pd.DataFrame(columns=columns)
+        df['PO'] = self.sPO[1:-1]
+
         df['problem'] = self.problem
         df['nf'] = self.nf
         for extra in self.extra_parameters.keys():
             df[extra] = self.extra_parameters[extra]
         df['refs'] = self.refs
-        df['PO'] = self.sPO
+        df['pref'] = df.index
+        logger.debug(self.extra_parameters.keys())
+        dfa = dfa.append(df, ignore_index=True)
 
-        dfa = dfa.append(pd.DataFrame(df))
-
-        dfa.save_csv(fn)
-        # hdf['runs'] = dfa
-        # hdf.close()
+        dfa.to_csv(fn)
 
     def next_iteration(self, PO):
         logger.info("Solving: %s:%i", self.problem, self.nf, PO)
@@ -209,7 +211,7 @@ class hADM:
                 self.stop = True
                 return None
             self.prev_refp = new_ref
-            logger.info("Solved: %s:\n%s", self.problem, new_ref)
+            logger.info("Solved: %s %i:\n" % (self.problem, self.nf), new_ref)
             return new_ref
         except ValueError:
             self.stop = True
