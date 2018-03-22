@@ -175,25 +175,22 @@ class hADM:
         fn = self._fn("%s-%s_%i.csv" % (self.method, self.problem, self.nf))
 
         columns = ['problem', 'nf', 'pref', 'refs', 'PO'] + self.extra_parameters.keys()
-
-        try:
-            dfa = pd.read_csv(fn)
-        except IOError:
-            dfa = pd.DataFrame(columns=columns)
         df = pd.DataFrame(columns=columns)
-        df['PO'] = self.sPO[1:-1]
 
+        df['PO'] = self.sPO[1:-1]
         df['problem'] = self.problem
         df['nf'] = self.nf
         for extra in self.extra_parameters.keys():
             df[extra] = self.extra_parameters[extra]
         df['refs'] = self.refs
         df['pref'] = df.index
-        logger.debug(self.extra_parameters.keys())
-        dfa = dfa.append(df, ignore_index=True)
-
-        dfa.to_csv(fn)
-
+        if os.path.exists(fn):
+            with open(fn, "a") as f:
+                df.to_csv(f, header=False, index=False)
+        else:
+            with open(fn, "a") as f:
+                df.to_csv(f, index=False)
+                
     def next_iteration(self, PO):
         logger.info("Solving: %s:%i", self.problem, self.nf, PO)
         try:
