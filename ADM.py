@@ -53,7 +53,7 @@ class hADM:
                  tol=0.01,
                  p=.9,
                  extra_parameters=None):
-        logger.info(preference)
+        self.max_iter = 10
         self.problem = problem
         self.nf = int(nf)
         self.stop = False
@@ -80,6 +80,8 @@ class hADM:
         self.sPO = []  # Set of Pareto optimal solutions selected by the ADM
         self.tol = tol
         self.p = p
+
+        logger.info("Initial preference:\n%s\n%s" % preference)
 
     def stop(self):
         return self.stop
@@ -115,12 +117,12 @@ class hADM:
     def next_refp(self, ref, objs):
         """ Return next reference point, or None if the process is finished
         """
-        logger.debug(ref)
+        logger.debug("Previous reference point:\n", ref)
         aspir = self.preference[0]
         w = self.preference[1]
-        nf = len(aspir)
+
         nadir = self.nadir
-        new_ref = [0.0] * nf
+        new_ref = [0.0] * self.nf
         # create the decision tree
         A = np.array(objs)
 
@@ -166,23 +168,22 @@ class hADM:
             new_ref[i] = min(trees[i].predict(n)[0], nadir[i])
         if np.array_equal(nadir, new_ref):
             return ref
+        logger.debug("New reference point:\n%s" % new_ref)
         return new_ref
 
     def save(self, run):
-        logger.debug(self.sPO)
-        logger.debug(self.refs)
-
         fn = self._fn("%s-%s_%i.csv" % (self.method, self.problem, self.nf))
 
         columns = ['problem', 'nf', 'pref', 'refs', 'PO'] + self.extra_parameters.keys()
         df = pd.DataFrame(columns=columns)
 
-        df['PO'] = self.sPO[1:-1]
+        df['PO'] = [self.sPO[1:-1]]
         df['problem'] = self.problem
         df['nf'] = self.nf
         for extra in self.extra_parameters.keys():
             df[extra] = self.extra_parameters[extra]
-        df['refs'] = self.refs
+        df['refs'] = [self.refs]
+
         df['pref'] = df.index
         if os.path.exists(fn):
             with open(fn, "a") as f:
@@ -192,12 +193,13 @@ class hADM:
                 df.to_csv(f, index=False)
                 
     def next_iteration(self, PO):
-        logger.info("Solving: %s:%i", self.problem, self.nf, PO)
         try:
             if isinstance(PO, (np.ndarray, np.generic)):
                 PO = PO.reshape(len(PO) / self.nf, self.nf).tolist()
 
-            if self.refs[-1] is not None and self.iter < 10:
+            logger.info("Solving: %s:%i\n%s", self.problem, self.nf, PO)
+
+            if self.refs[-1] is not None and self.iter < self.max_iter:
                 new_ref = self.next_refp(self.refs[-1], PO)
                 if np.array_equal(new_ref, self.prev_refp):
                     self.stop = True
@@ -208,8 +210,9 @@ class hADM:
                 self.stop = True
                 return None
             self.prev_refp = new_ref
-            logger.info("Solved: %s %i:\n" % (self.problem, self.nf), new_ref)
+            logger.info("Iteration %i: %s %i:\n%s" , self.iter, self.problem, self.nf, new_ref)
             return new_ref
         except ValueError:
             self.stop = True
+            logger.exception("Failed to create new refpoint")
             return None
