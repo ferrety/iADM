@@ -52,6 +52,7 @@ class hADM:
                  resdir='./results',
                  tol=0.01,
                  p=.9,
+                 run=0,
                  extra_parameters=None):
         self.max_iter = 10
         self.problem = problem
@@ -75,6 +76,8 @@ class hADM:
         self.refs = [self.preference[0][:]]
 
         self.extra_parameters = extra_parameters
+
+        self.run = run
 
         self.iter = 0  # Current iteration
         self.sPO = []  # Set of Pareto optimal solutions selected by the ADM
@@ -174,17 +177,17 @@ class hADM:
     def save(self, run):
         fn = self._fn("%s-%s_%i.csv" % (self.method, self.problem, self.nf))
 
-        columns = ['problem', 'nf', 'pref', 'refs', 'PO'] + self.extra_parameters.keys()
+        columns = ['problem', 'nf', 'pref_id', 'refs', 'PO'] + self.extra_parameters.keys()
         df = pd.DataFrame(columns=columns)
 
-        df['PO'] = [self.sPO[1:-1]]
+        df['PO'] = [self.sPO]
         df['problem'] = self.problem
         df['nf'] = self.nf
         for extra in self.extra_parameters.keys():
             df[extra] = self.extra_parameters[extra]
         df['refs'] = [self.refs]
 
-        df['pref'] = df.index
+        df['pref_id'] = self.run
         if os.path.exists(fn):
             with open(fn, "a") as f:
                 df.to_csv(f, header=False, index=False)
