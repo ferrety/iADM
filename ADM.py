@@ -84,7 +84,7 @@ class hADM:
         self.tol = tol
         self.p = p
 
-        logger.info("Initial preference:\n%s\n%s" % preference)
+        logger.info("Initial preference:\n%s" % preference)
 
     def stop(self):
         return self.stop
