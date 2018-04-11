@@ -25,10 +25,10 @@ def ffile(name, d="results"):
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), d, name)
 
 
-def preferences(problem, nf, it):
-    preferences = pickle.load(open(ffile('preferences.dmp'), 'r'))
+def preferences(problem, nf, it, resdir="results"):
+    preferences = pickle.load(open(ffile('preferences.dmp',resdir), 'r'))
     pref = preferences[(int(nf), problem)][int(it)]
-    pareto_points = pickle.load(open(ffile('PO.dmp'), 'r'))
+    pareto_points = pickle.load(open(ffile('PO.dmp',resdir), 'r'))
     aspPO = pareto_points[(int(nf), problem, pref)]
     logger.debug("Preference %i\n" % it, (pref, aspPO))
     return (pref, aspPO)
@@ -194,7 +194,7 @@ class hADM:
         else:
             with open(fn, "a") as f:
                 df.to_csv(f, index=False)
-                
+
     def next_iteration(self, PO):
         try:
             if isinstance(PO, (np.ndarray, np.generic)):
