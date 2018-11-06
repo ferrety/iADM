@@ -52,6 +52,7 @@ class hADM:
                  resdir='./results',
                  tol=0.01,
                  p=.9,
+                 pk_inc=.5,  # How likely we are to accept bad solution
                  run=0,
                  extra_parameters=None):
         self.max_iter = 10
@@ -83,6 +84,7 @@ class hADM:
         self.sPO = []  # Set of Pareto optimal solutions selected by the ADM
         self.tol = tol
         self.p = p
+        self.pk_inc = pk_inc
 
         logger.info("Initial preference:\n%s" % preference)
 
@@ -126,15 +128,8 @@ class hADM:
 
         nadir = self.nadir
         new_ref = [0.0] * self.nf
-        # create the decision tree
         A = np.array(objs)
-
-        trees = []
-        for i in range(self.nf):
-            trees.append(tree.DecisionTreeRegressor())
-            trees[-1].fit(
-                A[:, list(range(0, i)) + list(range(i + 1, self.nf))], A[:, i])
-
+        
         if len(objs) == 1:
             obj = objs[-1]
         else:
@@ -144,20 +139,35 @@ class hADM:
 
         self.sPO.append(obj)
         S = [None] * len(obj)
-        pk = self.p
+        
+        pk_inc = 1/nf*self.pk_inc
+        pk = self.p*pk_inc
 
-        k = 0
+        # Check if we are happy with current solution
         for k in reversed(np.argsort(w)):
             fk = obj[k]
             if abs(aspir[k] - fk) < self.tol and random.random() < self.p:
+                # It is good
                 S[k] = fk
             elif random.random() < pk:
+                # It is bad, but we do not care
                 S[k] = fk
-            if len(S):
-                pk -= pk / len(obj) * len(S)
-        if len(S) == k:
+            if S.count(None):
+                # Increase prob of not caring
+                pk += self.p*pk_inc
+        
+        # We are done here
+        if S.count(None):
             return ref
+ 
+        # create the decision tree
+        trees = []
+        for i in range(self.nf):
+            trees.append(tree.DecisionTreeRegressor())
+            trees[-1].fit(
+                A[:, list(range(0, i)) + list(range(i + 1, self.nf))], A[:, i])
 
+        # defaults for new ref
         for k, s in enumerate(S):
             if s is not None:
                 new_ref[k] = min(aspir[k] - (aspir[k] - obj[k]) / 2., nadir[k])
