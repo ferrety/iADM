@@ -157,7 +157,7 @@ class hADM:
                 pk += self.p*pk_inc
         
         # We are done here
-        if S.count(None):
+        if not S.count(None):
             return ref
  
         # create the decision tree
