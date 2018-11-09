@@ -28,8 +28,8 @@ def ffile(name, d="results"):
 def preferences(problem, nf, it, resdir="results"):
     preferences = pickle.load(open(ffile('preferences.dmp',resdir), 'r'))
     pref = preferences[(int(nf), problem)][int(it)]
-    pareto_points = pickle.load(open(ffile('PO.dmp',resdir), 'r'))
-    aspPO = pareto_points[(int(nf), problem, pref)]
+    po_file = resdir+"/POs_json.txt"
+    pareto_points = json.load(open(po_file, 'r'))
     logger.debug("Preference %i\n" % it, (pref, aspPO))
     return (pref, aspPO)
 
