@@ -31,6 +31,7 @@ def preferences(problem, nf, it, resdir="results"):
     pref = preferences[(int(nf), problem)][int(it)]
     po_file = resdir+"/POs_json.txt"
     pareto_points = json.load(open(po_file, 'r'))
+    aspPO = pareto_points["%s_%s"%(problem,int(nf))][int(it)]
     logger.debug("Preference %i\n" % it, (pref, aspPO))
     return (pref, aspPO)
 
